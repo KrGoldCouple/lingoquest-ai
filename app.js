@@ -113,7 +113,6 @@ let mockResponseIndex = 0;
 // ESTADO INTERNO DO JOGO
 // ==========================================================================
 const gameState = {
-    // Progresso do Aluno
     level: 1,
     xp: 0,
     streak: 0,
@@ -124,34 +123,28 @@ const gameState = {
     // Configurações
     geminiKey: "",
     studentLevel: "A1",
+    isStaticMode: true, // Determina se roda offline/estático ou com backend Express
     
-    // Vocabulário FSRS
-    vocab: {}, // Chave: 'word' -> card object
-    
-    // UI State
+    vocab: {}, 
     activeTab: 'journey',
     activeLesson: null,
     selectedWordInfo: null,
-    
-    // Fila de Revisão
     reviewQueue: [],
     currentReviewIndex: 0,
-    
-    // Histórico de Conversa
     chatHistory: [
         { role: "model", parts: [{ text: "Hello! I am Roby. Are you ready for our mission? Let's talk in English! 🤖" }] }
     ]
 };
 
-// Reconhecimento de voz
 let speechRecognition = null;
 let isRecordingSpeech = false;
 
 // ==========================================================================
 // INICIALIZAÇÃO
 // ==========================================================================
-document.addEventListener("DOMContentLoaded", () => {
-    loadGameData();
+document.addEventListener("DOMContentLoaded", async () => {
+    await detectMode();
+    await loadGameData();
     initBottomNav();
     initSpeechEngine();
     renderJourneyMap();
@@ -161,8 +154,22 @@ document.addEventListener("DOMContentLoaded", () => {
     checkAndUpdateStreak();
 });
 
+// Detecta se o servidor Express está disponível ou se roda em hospedagem estática (ex: GitHub Pages)
+async function detectMode() {
+    try {
+        const res = await fetch('/api/progress');
+        if (res.ok) {
+            gameState.isStaticMode = false;
+            console.log("Modo de Execução: Full-Stack (Server ativo)");
+        }
+    } catch (e) {
+        gameState.isStaticMode = true;
+        console.log("Modo de Execução: Estático / Local fallback");
+    }
+}
+
 // ==========================================================================
-// PERSISTÊNCIA DOURADA (LOCAL + SYNC NO BACKEND DA VM)
+// PERSISTÊNCIA DOURADA (LOCAL + SYNC NO BACKEND SE DISPONÍVEL)
 // ==========================================================================
 async function loadGameData() {
     // 1. Carrega do localStorage rápido
@@ -173,6 +180,7 @@ async function loadGameData() {
     const savedLessons = localStorage.getItem("lq_completed_lessons");
     const savedVocab = localStorage.getItem("lq_vocab");
     const savedName = localStorage.getItem("lq_student_name");
+    const savedKey = localStorage.getItem("lq_gemini_key_client");
     
     if (savedLevel) gameState.level = parseInt(savedLevel, 10);
     if (savedXp) gameState.xp = parseInt(savedXp, 10);
@@ -181,28 +189,28 @@ async function loadGameData() {
     if (savedLessons) gameState.completedLessons = JSON.parse(savedLessons);
     if (savedVocab) gameState.vocab = JSON.parse(savedVocab);
     if (savedName) gameState.studentName = savedName;
+    if (savedKey) gameState.geminiKey = savedKey;
 
-    // 2. Tenta sincronizar com o banco de dados db.json do servidor Express
-    try {
-        const res = await fetch('/api/progress');
-        if (res.ok) {
-            const serverData = await res.json();
-            // Sobrescreve se o servidor tiver dados válidos
-            if (serverData.level > 1 || Object.keys(serverData.vocab).length > 0 || serverData.completedLessons.length > 0) {
-                gameState.level = serverData.level;
-                gameState.xp = serverData.xp;
-                gameState.streak = serverData.streak;
-                gameState.last_study_date = serverData.last_study_date;
-                gameState.completedLessons = serverData.completedLessons || [];
-                gameState.vocab = serverData.vocab || {};
-                gameState.studentName = serverData.studentName || "Jovem Explorador";
-                
-                // Atualiza localmente o cache
-                saveToLocalStorage();
+    // 2. Se houver backend, sincroniza com o db.json
+    if (!gameState.isStaticMode) {
+        try {
+            const res = await fetch('/api/progress');
+            if (res.ok) {
+                const serverData = await res.json();
+                if (serverData.level > 1 || Object.keys(serverData.vocab).length > 0 || serverData.completedLessons.length > 0) {
+                    gameState.level = serverData.level;
+                    gameState.xp = serverData.xp;
+                    gameState.streak = serverData.streak;
+                    gameState.last_study_date = serverData.last_study_date;
+                    gameState.completedLessons = serverData.completedLessons || [];
+                    gameState.vocab = serverData.vocab || {};
+                    gameState.studentName = serverData.studentName || "Jovem Explorador";
+                    saveToLocalStorage();
+                }
             }
+        } catch (e) {
+            console.log("Falha ao sincronizar com servidor Express.");
         }
-    } catch (e) {
-        console.log("Express Server offline. Rodando em modo isolado/local (localStorage).");
     }
     
     document.getElementById("student-name-input").value = gameState.studentName;
@@ -219,26 +227,28 @@ function saveToLocalStorage() {
 }
 
 async function saveGameData() {
-    // 1. Grava cache local no navegador do celular
+    // 1. Grava no localStorage local
     saveToLocalStorage();
     
-    // 2. Envia para o servidor Express na VM salvar no db.json
-    try {
-        await fetch('/api/progress', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                level: gameState.level,
-                xp: gameState.xp,
-                streak: gameState.streak,
-                last_study_date: gameState.last_study_date,
-                completedLessons: gameState.completedLessons,
-                vocab: gameState.vocab,
-                studentName: gameState.studentName
-            })
-        });
-    } catch (e) {
-        console.log("Erro de rede ao salvar progresso no servidor backend da VM.");
+    // 2. Tenta sincronizar com o servidor da VM se estiver em modo full-stack
+    if (!gameState.isStaticMode) {
+        try {
+            await fetch('/api/progress', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    level: gameState.level,
+                    xp: gameState.xp,
+                    streak: gameState.streak,
+                    last_study_date: gameState.last_study_date,
+                    completedLessons: gameState.completedLessons,
+                    vocab: gameState.vocab,
+                    studentName: gameState.studentName
+                })
+            });
+        } catch (e) {
+            console.log("Erro de rede ao salvar progresso no servidor.");
+        }
     }
 }
 
@@ -466,7 +476,6 @@ function renderStoryText(content) {
         container.appendChild(paraEl);
     });
 
-    // 🏁 BOTÃO DE CONCLUSÃO DE MISSÃO VALIDADOR
     const finishBtn = document.createElement("button");
     finishBtn.className = "btn btn-save btn-block";
     finishBtn.style.marginTop = "35px";
@@ -485,7 +494,6 @@ function completeActiveLesson() {
     const isAlreadyDone = gameState.completedLessons.includes(lessonId);
     
     if (!isAlreadyDone) {
-        // Marca como completa, dá pontos de XP e fala áudio
         gameState.completedLessons.push(lessonId);
         addXP(25);
         speakText("Congratulations! Mission completed! Plus twenty five experience points!");
@@ -731,7 +739,7 @@ function toggleVoiceRecording() {
 }
 
 // ==========================================================================
-// PROXY SEGURO DE COMUNICAÇÃO DO GEMINI (TUTOR)
+// PROXY SEGURO DO GEMINI (ROTA /API OU CHAMADA DIRETA CASO HOSPEDAGEM ESTÁTICA)
 // ==========================================================================
 async function sendChatMessage(overrideText = null) {
     const textInput = document.getElementById("chat-text-input");
@@ -746,28 +754,67 @@ async function sendChatMessage(overrideText = null) {
     
     let answer = "";
     
-    // Tenta chamar o servidor Node local via proxy
-    try {
-        const response = await fetch('/api/chat', {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                chatHistory: gameState.chatHistory.map(h => ({ role: h.role, parts: h.parts }))
-            })
-        });
-        
-        if (response.ok) {
-            const serverRes = await response.json();
-            answer = serverRes.response || "I didn't catch that.";
-        } else {
-            console.log("Servidor retornou erro. Usando respostas locais.");
-            throw new Error("Erro de processamento.");
+    // 1. Tenta chamar o servidor Express (Proxy Seguro)
+    if (!gameState.isStaticMode) {
+        try {
+            const response = await fetch('/api/chat', {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    chatHistory: gameState.chatHistory.map(h => ({ role: h.role, parts: h.parts }))
+                })
+            });
+            
+            if (response.ok) {
+                const serverRes = await response.json();
+                answer = serverRes.response || "I didn't catch that.";
+            } else {
+                throw new Error("Erro de processamento.");
+            }
+        } catch (e) {
+            console.log("Erro ao usar proxy de chat. Usando fallback.");
+            answer = "I'm having connection issues. Please check the backend.";
         }
-    } catch (e) {
-        // Fallback offline se o servidor falhar / chave não existir
-        await new Promise(r => setTimeout(r, 1200));
-        answer = MOCK_TUTOR_RESPONSES[mockResponseIndex];
-        mockResponseIndex = (mockResponseIndex + 1) % MOCK_TUTOR_RESPONSES.length;
+    } else {
+        // 2. Hospedagem Estática (GitHub Pages): chama a API do Gemini diretamente do navegador
+        if (gameState.geminiKey) {
+            try {
+                const systemInstruction = 
+                    "You are Roby, a super friendly AI English Tutor for a child learning English. " +
+                    "You must speak only in English. Keep your responses very simple, encouraging, and under 3 sentences. " +
+                    "VERY IMPORTANT: If the child makes a grammar, vocabulary or spelling mistake in their English input, " +
+                    "gently correct it. Explain the correction in Portuguese inside parentheses at the end of your response, " +
+                    "like this: (Dica: 'He like' está incorreto, o certo é 'He likes' porque usamos o 's' para he/she/it). " +
+                    "If they speak correctly, just continue the conversation normally in English and do not include the parentheses.";
+                
+                const response = await fetch(
+                    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${gameState.geminiKey}`,
+                    {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            contents: gameState.chatHistory.map(h => ({ role: h.role, parts: h.parts })),
+                            systemInstruction: { parts: [{ text: systemInstruction }] },
+                            generationConfig: { maxOutputTokens: 200, temperature: 0.7 }
+                        })
+                    }
+                );
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    answer = data.candidates?.[0]?.content?.parts?.[0]?.text || "I didn't catch that.";
+                } else {
+                    answer = "Gemini Key error. (Dica: Sua chave configurada no Painel do celular é inválida).";
+                }
+            } catch (e) {
+                answer = "Error contacting Gemini. Check connection.";
+            }
+        } else {
+            // Fallback offline total
+            await new Promise(r => setTimeout(r, 1200));
+            answer = MOCK_TUTOR_RESPONSES[mockResponseIndex];
+            mockResponseIndex = (mockResponseIndex + 1) % MOCK_TUTOR_RESPONSES.length;
+        }
     }
     
     typing.remove();
@@ -900,7 +947,7 @@ function updateReviewBadge() {
 }
 
 // ==========================================================================
-// GERADOR DE HISTÓRIAS DO PORTAL DE IA (PROXY VIA SERVIDOR)
+// GERADOR DE HISTÓRIAS DO PORTAL DE IA (HÍBRIDO COM OU SEM SERVIDOR)
 // ==========================================================================
 async function generateAILesson(e) {
     e.preventDefault();
@@ -913,59 +960,124 @@ async function generateAILesson(e) {
     btn.disabled = true;
     btn.innerText = "✨ Criando história com IA (Aguarde)...";
     
-    try {
-        const response = await fetch('/api/generate-lesson', {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ theme, targetLevel })
-        });
-        
-        if (response.ok) {
-            const data = await response.json();
-            const generatedStory = data.story;
+    // 1. Tenta via Servidor Express (Proxy Seguro)
+    if (!gameState.isStaticMode) {
+        try {
+            const response = await fetch('/api/generate-lesson', {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ theme, targetLevel })
+            });
             
-            if (generatedStory) {
-                const newCustomId = "custom_lesson_" + Date.now();
-                const newLesson = {
-                    id: newCustomId,
-                    title: `${theme} (IA) ✨`,
-                    theme: theme,
-                    level: targetLevel,
-                    emoji: "✨",
-                    content: generatedStory.trim()
-                };
-                
-                STORY_LESSONS.push(newLesson);
-                renderJourneyMap();
-                document.getElementById("ai-generation-form").reset();
-                alert(`Missão de IA sobre "${theme}" gerada e adicionada à sua Jornada!`);
+            if (response.ok) {
+                const data = await response.json();
+                injectGeneratedStory(data.story, theme, targetLevel);
             } else {
-                alert("O servidor da VM retornou uma história vazia.");
+                throw new Error();
             }
-        } else {
-            alert("Erro na geração. Verifique se a API Key do Gemini está configurada no arquivo .env do seu servidor da VM.");
+        } catch (err) {
+            alert("Erro na geração. Certifique-se de que a API Key do Gemini está configurada no .env do servidor.");
+        } finally {
+            btn.disabled = false;
+            btn.innerText = originalText;
         }
-    } catch (err) {
-        console.error(err);
-        alert("Erro de rede. Verifique se o servidor Express está ativo.");
-    } finally {
-        btn.disabled = false;
-        btn.innerText = originalText;
+    } else {
+        // 2. Se rodando no GitHub Pages (Estático): chama Gemini direto pelo navegador
+        if (!gameState.geminiKey) {
+            alert("Para gerar lições no modo estático, configure sua chave do Gemini na caixa de input acima e salve!");
+            btn.disabled = false;
+            btn.innerText = originalText;
+            return;
+        }
+        
+        try {
+            const systemPrompt = 
+                `You are an expert language course content creator. Write a short children's adventure story in English ` +
+                `about the topic: "${theme}". The difficulty level must strictly be: ${targetLevel}. ` +
+                `The story should be simple, around 5 paragraphs. Make sure to naturally incorporate at least 3 of these structural phrases (Sentence patterns): ` +
+                `"need to", "make sure to", "better than", "whenever you", "instead of", "as soon as". ` +
+                `Return ONLY the text of the story, with no headers, comments or markdown format. Just the plain text paragraphs separated by line breaks.`;
+                
+            const response = await fetch(
+                `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${gameState.geminiKey}`,
+                {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        contents: [{ role: "user", parts: [{ text: systemPrompt }] }],
+                        generationConfig: { maxOutputTokens: 500, temperature: 0.7 }
+                    })
+                }
+            );
+            
+            if (response.ok) {
+                const data = await response.json();
+                const story = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+                injectGeneratedStory(story, theme, targetLevel);
+            } else {
+                alert("Erro ao contatar API do Gemini. Verifique sua chave no Painel.");
+            }
+        } catch (err) {
+            alert("Erro de conexão com o Gemini.");
+        } finally {
+            btn.disabled = false;
+            btn.innerText = originalText;
+        }
     }
+}
+
+function injectGeneratedStory(storyText, theme, targetLevel) {
+    if (!storyText) {
+        alert("Erro: História vazia retornada.");
+        return;
+    }
+    
+    const newCustomId = "custom_lesson_" + Date.now();
+    const newLesson = {
+        id: newCustomId,
+        title: `${theme} (IA) ✨`,
+        theme: theme,
+        level: targetLevel,
+        emoji: "✨",
+        content: storyText.trim()
+    };
+    
+    STORY_LESSONS.push(newLesson);
+    renderJourneyMap();
+    document.getElementById("ai-generation-form").reset();
+    alert(`Missão de IA sobre "${theme}" gerada e adicionada à sua Jornada!`);
 }
 
 // ==========================================================================
 // CONFIGURAÇÕES GERAIS E BINDINGS
 // ==========================================================================
 function initSettingsView() {
-    // Esconde input de chaves API físicas e alerta sobre segurança no .env do servidor
     const geminiInput = document.getElementById("gemini-key-input");
-    geminiInput.value = "●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●";
-    geminiInput.disabled = true;
-    
-    document.getElementById("btn-save-key").style.display = "none";
+    const saveKeyBtn = document.getElementById("btn-save-key");
     const descText = document.querySelector("#settings-screen .settings-section p.section-desc");
-    descText.innerHTML = `⚠️ <strong>Nota de Segurança:</strong> A chave API do Gemini está configurada no servidor backend da sua VM (arquivo <code>.env</code>). O celular do seu filho não tem acesso à chave, garantindo segurança máxima contra vazamentos!`;
+
+    if (!gameState.isStaticMode) {
+        // Modo Servidor: Esconde input e avisa sobre .env
+        geminiInput.value = "●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●";
+        geminiInput.disabled = true;
+        saveKeyBtn.style.display = "none";
+        descText.innerHTML = `⚠️ <strong>Nota de Segurança:</strong> A chave API do Gemini está configurada no servidor backend da sua VM (arquivo <code>.env</code>). O celular do seu filho não tem acesso à chave, garantindo segurança máxima contra vazamentos!`;
+    } else {
+        // Modo Estático (GitHub Pages): Exibe para inserir no local
+        geminiInput.value = gameState.geminiKey;
+        geminiInput.disabled = false;
+        saveKeyBtn.style.display = "block";
+        descText.innerHTML = `🔑 <strong>Hospedagem Estática (Nuvem):</strong> Insira sua chave API do Gemini obtida de graça no Google AI Studio. Ela ficará salva localmente no navegador do celular.`;
+        
+        saveKeyBtn.addEventListener("click", () => {
+            const key = geminiInput.value.trim();
+            if (key) {
+                gameState.geminiKey = key;
+                localStorage.setItem("lq_gemini_key_client", key);
+                alert("Chave do Gemini salva no navegador com sucesso!");
+            }
+        });
+    }
 
     // Salvar Nome do Filho
     document.getElementById("btn-save-name").addEventListener("click", () => {
@@ -1018,6 +1130,10 @@ function initUIEvents() {
             selectEmojiRating(rating);
         });
     });
+    
+    if ('speechSynthesis' in window) {
+        window.speechSynthesis.onvoiceschanged = () => {};
+    }
 }
 
 // Streak
