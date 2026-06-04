@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>LingoQuest AI — A Jornada do Inglês Inteligente</title>
+    <!-- Fontes Premium com estilo Game -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@300..700&family=Plus+Jakarta+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Container Principal Mobile -->
+    <div class="mobile-layout">
+        
+        <!-- BARRA SUPERIOR: PLACAR DE PONTOS / XP -->
+        <header class="top-scoreboard">
+            <div class="user-level-badge">
+                <span class="level-label">Nível</span>
+                <span class="level-num" id="top-level">1</span>
+            </div>
+            
+            <div class="xp-bar-container">
+                <div class="xp-bar-fill" id="top-xp-fill" style="width: 0%;"></div>
+                <span class="xp-text" id="top-xp-text">0 / 100 XP</span>
+            </div>
+            
+            <div class="streak-badge">
+                <span class="streak-icon">🔥</span>
+                <span class="streak-num" id="top-streak">0</span>
+            </div>
+        </header>
+
+        <!-- CONTEÚDO PRINCIPAL (Telas Dinâmicas) -->
+        <main class="content-viewport">
+            
+            <!-- TELA 1: 🗺️ JORNADA (MAPA DE JOGOS) -->
+            <section id="journey-screen" class="screen-panel active">
+                <div class="journey-header">
+                    <h2>Trilha da Fluência 🗺️</h2>
+                    <p>Suba a montanha do inglês de 0 a 100!</p>
+                </div>
+                
+                <!-- Mapa Estilo Trilha de Jogo -->
+                <div class="journey-map-scroll">
+                    <div class="journey-path-vector"></div>
+                    
+                    <div class="map-nodes-container" id="map-nodes">
+                        <!-- Inserido dinamicamente via JS -->
+                    </div>
+
+                    <!-- Botão Especial de Certificado -->
+                    <div id="certificate-unlock-area" style="display: none; margin-top: 30px; text-align: center; width: 100%;">
+                        <button class="btn btn-certificate-claim" id="btn-claim-cert">
+                            🎓 Resgatar Certificado de Fluência!
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TELA 2: 📖 LEITOR IMERSIVO -->
+            <section id="reader-screen" class="screen-panel">
+                <div class="reader-header">
+                    <button class="btn-back" id="btn-reader-back">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="3">
+                            <line x1="19" y1="12" x2="5" y2="12"></line>
+                            <polyline points="12 19 5 12 12 5"></polyline>
+                        </svg>
+                        Mapa
+                    </button>
+                    <h3 id="reader-story-title">Título da História</h3>
+                    <span class="story-badge-lang" id="reader-story-lang">EN</span>
+                </div>
+                
+                <div class="reader-scrollable">
+                    <div class="story-text-body" id="story-text-container">
+                        <!-- Texto tokenizado dinâmico -->
+                    </div>
+                </div>
+
+                <!-- Painel Flutuante do Dicionário Rápido (Mobile-Optimized Drawer) -->
+                <div class="dictionary-drawer" id="dict-drawer">
+                    <div class="drawer-handle"></div>
+                    <div class="drawer-content" id="dict-drawer-content">
+                        <!-- Estado Vazio -->
+                        <div class="drawer-empty" id="dict-empty-state">
+                            <span class="empty-emoji">👆</span>
+                            <p>Toque em uma palavra ou lógica frasal para traduzir, ouvir a voz e treinar!</p>
+                        </div>
+                        
+                        <!-- Estado Ativo -->
+                        <div class="drawer-active" id="dict-active-state" style="display: none;">
+                            <div class="drawer-word-header">
+                                <div class="word-title-group">
+                                    <h4 id="dict-word">Word</h4>
+                                    <span class="chunk-badge" id="dict-chunk-badge" style="display: none;">⭐ Lógica Frasal</span>
+                                </div>
+                                <button class="btn-speak" id="btn-speak-word" title="Ouvir Pronúncia">
+                                    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                                        <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                            
+                            <div class="dict-translation-input-box">
+                                <label for="dict-translation-input">Tradução em Português:</label>
+                                <input type="text" id="dict-translation-input" placeholder="Buscando tradução...">
+                            </div>
+
+                            <div class="dict-context-info">
+                                <strong>Na frase:</strong>
+                                <p id="dict-context-sentence">"This is the context sentence."</p>
+                            </div>
+
+                            <button class="btn btn-save" id="btn-save-drawer">🌟 Salvar para Treino (+10 XP)</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TELA 3: 💬 TUTOR AI (CHAT DE VOZ/TEXTO) -->
+            <section id="chat-screen" class="screen-panel">
+                <div class="chat-header">
+                    <div class="tutor-avatar">🤖</div>
+                    <div>
+                        <h3>Roby — Seu Tutor de Inglês</h3>
+                        <span class="tutor-status">Online e ouvindo</span>
+                    </div>
+                    <button class="btn-back" id="btn-chat-back">Sair</button>
+                </div>
+                
+                <div class="chat-messages-container" id="chat-messages">
+                    <!-- Mensagens do Tutor e da Criança -->
+                    <div class="chat-bubble tutor">
+                        Hello! I am Roby. Are you ready for our mission? Let's talk in English! 🤖
+                    </div>
+                </div>
+
+                <!-- Painel de Controles de Voz e Texto -->
+                <div class="chat-input-panel">
+                    <div class="voice-mic-control">
+                        <button class="btn-mic" id="btn-mic-toggle">
+                            <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2" id="mic-icon">
+                                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                                <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                                <line x1="12" y1="19" x2="12" y2="23"></line>
+                                <line x1="8" y1="23" x2="16" y2="23"></line>
+                            </svg>
+                        </button>
+                        <p class="voice-status-text" id="voice-status">Toque no microfone para falar</p>
+                    </div>
+
+                    <!-- Input alternativo por texto -->
+                    <div class="chat-text-row">
+                        <input type="text" id="chat-text-input" placeholder="Ou digite sua resposta em inglês...">
+                        <button class="btn-send-text" id="btn-send-message">Enviar</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TELA 4: 🃏 TREINO DE MEMÓRIA (FLASHCARDS FSRS) -->
+            <section id="review-screen" class="screen-panel">
+                <div class="review-game-header">
+                    <h2>Treino de Memória 🃏</h2>
+                    <span class="due-counter" id="review-due-count">0 pendentes</span>
+                </div>
+
+                <!-- Arena de Flashcard -->
+                <div class="flashcard-game-arena">
+                    <!-- Estado Sem Cards -->
+                    <div class="review-finished-state" id="review-empty-state">
+                        <div class="trophy-badge">🏆</div>
+                        <h3>Excelente Trabalho!</h3>
+                        <p>Você completou todos os treinos de hoje e fortaleceu seu cérebro.</p>
+                        <button class="btn btn-primary" id="btn-review-go-map">Explorar Mapa</button>
+                    </div>
+
+                    <!-- Card Ativo -->
+                    <div class="game-flashcard" id="game-card-active" style="display: none;">
+                        <div class="card-question-box">
+                            <span class="card-hint-label" id="game-card-type-label">COMPLETE A FRASE</span>
+                            <p class="card-question-context" id="card-review-sentence">"We need to study the <span class="highlight">word</span>."</p>
+                        </div>
+                        
+                        <!-- Resposta Oculta/Visível -->
+                        <div class="card-answer-box" id="card-review-answer-box" style="display: none;">
+                            <div class="answer-divider"></div>
+                            <h2 id="card-review-target">word</h2>
+                            <h3 id="card-review-translation">tradução</h3>
+                        </div>
+
+                        <!-- Controles de Ação -->
+                        <div class="card-game-controls">
+                            <button class="btn btn-show-answer-game" id="btn-game-reveal">Revelar Resposta 🔍</button>
+                            
+                            <!-- Botões de Reação por Emojis baseados no FSRS -->
+                            <div class="emoji-rating-grid" id="game-rating-buttons" style="display: none;">
+                                <button class="btn-rating-emoji again" data-rating="1">
+                                    <span class="rating-emoji">😭</span>
+                                    <span class="rating-txt">Esqueci</span>
+                                    <span class="rating-time" id="time-again">1d</span>
+                                </button>
+                                <button class="btn-rating-emoji hard" data-rating="2">
+                                    <span class="rating-emoji">🤨</span>
+                                    <span class="rating-txt">Difícil</span>
+                                    <span class="rating-time" id="time-hard">2d</span>
+                                </button>
+                                <button class="btn-rating-emoji good" data-rating="3">
+                                    <span class="rating-emoji">🙂</span>
+                                    <span class="rating-txt">Bom</span>
+                                    <span class="rating-time" id="time-good">5d</span>
+                                </button>
+                                <button class="btn-rating-emoji easy" data-rating="4">
+                                    <span class="rating-emoji">😎</span>
+                                    <span class="rating-txt">Fácil</span>
+                                    <span class="rating-time" id="time-easy">12d</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TELA 5: 🎓 CERTIFICADO DE FLUÊNCIA -->
+            <section id="certificate-screen" class="screen-panel">
+                <div class="certificate-container glass-panel">
+                    <div class="cert-border">
+                        <div class="cert-badge">🏆</div>
+                        <h1 class="cert-title">CERTIFICADO DE FLUÊNCIA</h1>
+                        <p class="cert-subtitle">LingoQuest AI - English Journey</p>
+                        <div class="cert-divider"></div>
+                        <p class="cert-body">Certificamos solenemente que o(a) explorador(a)</p>
+                        <h2 class="cert-student-name">Jovem Explorador</h2>
+                        <p class="cert-text">
+                            completou com sucesso a <strong>Trilha Curada do 0 ao 100</strong> do LingoQuest AI,
+                            dominando as 10 Fases da jornada léxica, as estruturas gramaticais essenciais,
+                            leitura assistida de chunks e conversação fluida com inteligência artificial.
+                        </p>
+                        <div class="cert-meta-row">
+                            <div class="cert-meta-item">
+                                <span class="meta-label">Metodologia</span>
+                                <span class="meta-val">Lexical & Comprehensible Input</span>
+                            </div>
+                            <div class="cert-meta-item">
+                                <span class="meta-label">Motor SRS</span>
+                                <span class="meta-val">FSRS Verificado</span>
+                            </div>
+                        </div>
+                        <div class="cert-signatures">
+                            <div class="signature-line">
+                                <span class="sig-title">Roby</span>
+                                <span class="sig-sub">Tutor IA Oficial</span>
+                            </div>
+                            <div class="signature-line">
+                                <span class="sig-title">LingoQuest AI</span>
+                                <span class="sig-sub">Graduação</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="cert-actions">
+                    <button class="btn btn-primary" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>
+                    <button class="btn btn-icon" id="btn-cert-back-map">Voltar ao Mapa</button>
+                </div>
+            </section>
+
+            <!-- TELA 6: ⚙️ PAINEL DOS PAIS / PORTAL DE EXPANSÃO -->
+            <section id="settings-screen" class="screen-panel">
+                <div class="settings-header">
+                    <h2>Área dos Pais e Configurações ⚙️</h2>
+                    <p>Monitore o progresso e configure a IA.</p>
+                </div>
+                
+                <div class="settings-container">
+                    <!-- Configurar API do Gemini -->
+                    <div class="settings-section glass-panel">
+                        <h3>🔑 Ativar Tutor de Voz AI</h3>
+                        <p class="section-desc">Insira a chave da API do Gemini para permitir conversações reais por voz com IA.</p>
+                        <div class="form-group">
+                            <label for="gemini-key-input">Chave API do Gemini</label>
+                            <input type="password" id="gemini-key-input" placeholder="Cole sua API Key da Google AI Studio aqui...">
+                        </div>
+                        <button class="btn btn-primary" id="btn-save-key">Salvar Chave API</button>
+                    </div>
+
+                    <!-- Configurar Nome do Filho -->
+                    <div class="settings-section glass-panel">
+                        <h3>👤 Nome do Estudante</h3>
+                        <p class="section-desc">Insira o nome do seu filho para aparecer no Certificado de Fluência.</p>
+                        <div class="form-group">
+                            <label for="student-name-input">Nome do Aluno</label>
+                            <input type="text" id="student-name-input" value="Jovem Explorador" placeholder="Nome completo...">
+                        </div>
+                        <button class="btn btn-primary" id="btn-save-name">Salvar Nome</button>
+                    </div>
+
+                    <!-- Portal de Expansão (Ir Além com IA) -->
+                    <div class="settings-section glass-panel" style="border: 2px solid var(--pink-neon);">
+                        <h3 style="color: var(--pink-neon);">✨ Portal da IA: Gerar Missão Personalizada (Ir Além)</h3>
+                        <p class="section-desc">Crie novas histórias sob demanda sobre assuntos que seu filho ama sem interferir na Trilha Principal do certificado!</p>
+                        <form id="ai-generation-form">
+                            <div class="form-group">
+                                <label for="ai-theme">Qual assunto seu filho ama?</label>
+                                <input type="text" id="ai-theme" required placeholder="Ex: Minecraft, Dinossauros, Skate...">
+                            </div>
+                            <div class="form-group">
+                                <label for="ai-level">Nível da História</label>
+                                <select id="ai-level">
+                                    <option value="A1">Básico (A1)</option>
+                                    <option value="A2">Intermediário (A2)</option>
+                                    <option value="B1">Avançado (B1)</option>
+                                </select>
+                            </div>
+                            <button type="submit" class="btn btn-primary" id="btn-generate-ai-lesson" style="background: linear-gradient(135deg, var(--pink-neon) 0%, var(--accent) 100%); box-shadow: var(--glow-pink);">
+                                ✨ Gerar e Inserir no Mapa
+                            </button>
+                        </form>
+                    </div>
+                    
+                    <!-- Banco de dados exportável -->
+                    <div class="settings-section glass-panel">
+                        <h3>📊 Redefinir Dados</h3>
+                        <p class="section-desc">Apagar todo o progresso do aluno para recomeçar a jornada.</p>
+                        <button class="btn btn-rating again" id="btn-reset-app">Limpar Todo o Progresso</button>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+
+        <!-- BARRA DE NAVEGAÇÃO INFERIOR (BOTTOM NAV BAR) -->
+        <nav class="bottom-navigation-bar">
+            <button class="nav-tabactive active" data-tab="journey">
+                <span class="nav-icon">🗺️</span>
+                <span class="nav-label">Jornada</span>
+            </button>
+            <button class="nav-tabactive" data-tab="reader">
+                <span class="nav-icon">📖</span>
+                <span class="nav-label">Leitor</span>
+            </button>
+            <button class="nav-tabactive" data-tab="chat">
+                <span class="nav-icon">💬</span>
+                <span class="nav-label">Tutor AI</span>
+            </button>
+            <button class="nav-tabactive" data-tab="review">
+                <span class="nav-icon">🃏</span>
+                <span class="nav-label">Treino</span>
+                <span class="nav-badge-count" id="badge-nav-reviews" style="display: none;">0</span>
+            </button>
+            <button class="nav-tabactive" data-tab="settings">
+                <span class="nav-icon">⚙️</span>
+                <span class="nav-label">Painel</span>
+            </button>
+        </nav>
+
+    </div>
+
+    <!-- Scripts de Lógica -->
+    <script src="srs.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

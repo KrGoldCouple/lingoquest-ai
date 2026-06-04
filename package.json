@@ -1,0 +1,16 @@
+{
+  "name": "lingoquest-ai",
+  "version": "1.0.0",
+  "description": "Aplicativo web full-stack de aprendizado acelerado de inglês para crianças, integrado com Gemini 2.5 Flash",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2"
+  },
+  "author": "Rafael Barros",
+  "license": "MIT"
+}
