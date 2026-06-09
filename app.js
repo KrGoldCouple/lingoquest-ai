@@ -640,11 +640,16 @@ async function handleTokenSelect(spanEl, token) {
         if (isPattern) {
             translationInput.value = token.pattern.translation;
         } else {
+            const currentSelectedWord = textValue;
             const res = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(textValue)}&langpair=en|pt`);
             if (res.ok) {
                 const data = await res.json();
                 const trans = data.responseData?.translatedText || "";
-                translationInput.value = trans.replace(/[.]+$/, '').trim();
+                if (gameState.selectedWordInfo && gameState.selectedWordInfo.lowerWord === currentSelectedWord) {
+                    if (translationInput.value === "") {
+                        translationInput.value = trans.replace(/[.]+$/, '').trim();
+                    }
+                }
             }
         }
     }
@@ -706,11 +711,28 @@ function initSpeechEngine() {
             document.getElementById("btn-mic-toggle").classList.remove("recording");
             document.getElementById("voice-status").innerText = "Toque no microfone para falar";
         };
+        speechRecognition.onerror = (e) => {
+            console.error("Speech recognition error:", e.error);
+            let msg = "Erro no microfone. Tente novamente!";
+            if (e.error === 'not-allowed') {
+                msg = "Microfone bloqueado. Permita nas configurações.";
+            } else if (e.error === 'network') {
+                msg = "Erro de conexão de rede com o microfone.";
+            }
+            document.getElementById("voice-status").innerText = msg;
+        };
         speechRecognition.onresult = (e) => {
             const text = e.results[0][0].transcript;
             document.getElementById("chat-text-input").value = text;
             sendChatMessage(text);
         };
+    } else {
+        document.getElementById("voice-status").innerText = "Teclado ativo (Voz não disponível neste navegador)";
+        const micBtn = document.getElementById("btn-mic-toggle");
+        if (micBtn) {
+            micBtn.style.opacity = "0.5";
+            micBtn.style.cursor = "not-allowed";
+        }
     }
 }
 
@@ -736,6 +758,36 @@ function toggleVoiceRecording() {
     } else {
         speechRecognition.start();
     }
+}
+
+function appendChatBubble(text, className) {
+    const container = document.getElementById("chat-messages");
+    if (!container) return null;
+    
+    const bubble = document.createElement("div");
+    bubble.className = `chat-bubble ${className}`;
+    
+    // Se a mensagem do tutor tiver uma dica em português (entre parênteses),
+    // separa e estiliza a dica para melhor visualização da criança
+    if (className === "tutor" && text.includes("(") && text.includes(")")) {
+        const cleanText = text.replace(/\(.*?\)/g, "").trim();
+        const match = text.match(/\((.*?)\)/);
+        const tipText = match ? match[1] : "";
+        
+        bubble.innerText = cleanText;
+        if (tipText) {
+            const tipEl = document.createElement("span");
+            tipEl.className = "grammar-correction-tip";
+            tipEl.innerText = `💡 Dica: ${tipText}`;
+            bubble.appendChild(tipEl);
+        }
+    } else {
+        bubble.innerText = text;
+    }
+    
+    container.appendChild(bubble);
+    container.scrollTop = container.scrollHeight;
+    return bubble;
 }
 
 // ==========================================================================
