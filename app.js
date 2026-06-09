@@ -743,10 +743,51 @@ function speakText(text) {
     const englishOnlyText = text.replace(/\(.*?\)/g, "").trim();
     const utterance = new SpeechSynthesisUtterance(englishOnlyText);
     utterance.lang = "en-US";
-    
+    utterance.rate = 0.92;  // Um pouco mais lento para ajudar na compreensão da pronúncia pelas crianças
+    utterance.pitch = 1.05; // Tom de voz ligeiramente mais amigável e infantil
+
     const voices = window.speechSynthesis.getVoices();
-    const enVoice = voices.find(v => v.lang.startsWith("en-"));
-    if (enVoice) utterance.voice = enVoice;
+    let selectedVoice = null;
+
+    if (voices.length > 0) {
+        const enVoices = voices.filter(v => v.lang.startsWith("en-"));
+        
+        // 1. Google US English (Voz na nuvem do Chrome de altíssima qualidade)
+        selectedVoice = enVoices.find(v => v.name.includes("Google US English"));
+        
+        // 2. Vozes premium da Apple (Samantha, Ava, Allison, etc.)
+        if (!selectedVoice) {
+            selectedVoice = enVoices.find(v => 
+                v.name.includes("Samantha") || 
+                v.name.includes("Ava") || 
+                v.name.includes("Allison") ||
+                v.name.includes("Premium")
+            );
+        }
+        
+        // 3. Outras vozes do Google ou com termo "Natural"
+        if (!selectedVoice) {
+            selectedVoice = enVoices.find(v => 
+                v.name.includes("Google") || 
+                v.name.toLowerCase().includes("natural")
+            );
+        }
+        
+        // 4. Qualquer voz com sotaque americano (en-US)
+        if (!selectedVoice) {
+            selectedVoice = enVoices.find(v => v.lang === "en-US");
+        }
+        
+        // 5. Fallback para a primeira voz em inglês encontrada
+        if (!selectedVoice && enVoices.length > 0) {
+            selectedVoice = enVoices[0];
+        }
+    }
+    
+    if (selectedVoice) {
+        utterance.voice = selectedVoice;
+        console.log("Voz do Roby selecionada:", selectedVoice.name);
+    }
     
     window.speechSynthesis.speak(utterance);
 }
