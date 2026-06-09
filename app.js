@@ -737,22 +737,43 @@ function initSpeechEngine() {
 }
 
 function speakText(text) {
+    const englishOnlyText = text.replace(/\(.*?\)/g, "").trim();
+    if (englishOnlyText.length === 0) return;
+
+    // Se estiver online e o texto for curto (limite da API do Google), usa a voz de nuvem do Google (SOTA)
+    if (navigator.onLine && englishOnlyText.length < 180) {
+        const url = `https://translate.google.com/translate_tts?ie=UTF-8&tl=en-US&client=tw-ob&q=${encodeURIComponent(englishOnlyText)}`;
+        const audio = new Audio(url);
+        audio.play().catch(err => {
+            console.warn("Falha no Cloud TTS, usando sintetizador local:", err);
+            speakTextLocal(englishOnlyText);
+        });
+    } else {
+        speakTextLocal(englishOnlyText);
+    }
+}
+
+function speakTextLocal(englishOnlyText) {
     if (!('speechSynthesis' in window)) return;
     window.speechSynthesis.cancel();
     
-    const englishOnlyText = text.replace(/\(.*?\)/g, "").trim();
     const utterance = new SpeechSynthesisUtterance(englishOnlyText);
     utterance.lang = "en-US";
-    utterance.rate = 0.92;  // Um pouco mais lento para ajudar na compreensão da pronúncia pelas crianças
-    utterance.pitch = 1.05; // Tom de voz ligeiramente mais amigável e infantil
+    utterance.rate = 0.92;  // Ligeiramente mais lento para melhor compreensão
+    utterance.pitch = 1.05; // Tom amigável
 
     const voices = window.speechSynthesis.getVoices();
     let selectedVoice = null;
 
     if (voices.length > 0) {
-        const enVoices = voices.filter(v => v.lang.startsWith("en-"));
+        // Exclui vozes robóticas/ridículas herdadas do macOS (como Fred, Albert, Zarvox, etc.)
+        const noveltyVoices = ["fred", "albert", "bad news", "bahh", "bells", "boing", "bubbles", "cellos", "deranged", "good news", "hysterical", "pipe organ", "trinoids", "whisper", "zarvox"];
+        const enVoices = voices.filter(v => 
+            v.lang.startsWith("en-") && 
+            !noveltyVoices.some(name => v.name.toLowerCase().includes(name))
+        );
         
-        // 1. Google US English (Voz na nuvem do Chrome de altíssima qualidade)
+        // 1. Google US English (Voz do Google Chrome)
         selectedVoice = enVoices.find(v => v.name.includes("Google US English"));
         
         // 2. Vozes premium da Apple (Samantha, Ava, Allison, etc.)
@@ -765,7 +786,7 @@ function speakText(text) {
             );
         }
         
-        // 3. Outras vozes do Google ou com termo "Natural"
+        // 3. Outras vozes naturais
         if (!selectedVoice) {
             selectedVoice = enVoices.find(v => 
                 v.name.includes("Google") || 
@@ -778,7 +799,7 @@ function speakText(text) {
             selectedVoice = enVoices.find(v => v.lang === "en-US");
         }
         
-        // 5. Fallback para a primeira voz em inglês encontrada
+        // 5. Fallback para a primeira voz limpa em inglês encontrada
         if (!selectedVoice && enVoices.length > 0) {
             selectedVoice = enVoices[0];
         }
@@ -786,7 +807,7 @@ function speakText(text) {
     
     if (selectedVoice) {
         utterance.voice = selectedVoice;
-        console.log("Voz do Roby selecionada:", selectedVoice.name);
+        console.log("Voz local selecionada:", selectedVoice.name);
     }
     
     window.speechSynthesis.speak(utterance);
